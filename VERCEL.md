@@ -13,10 +13,15 @@ Truy cập **Vercel Dashboard > Project Settings > Environment Variables** và t
 - `FIREBASE_FIRESTORE_DATABASE_ID`: Lấy từ `firebase-applet-config.json` (phần `firestoreDatabaseId`).
 
 ### Firebase Admin (Service Account) - Cần thiết cho Quản trị viên (Admin Panel)
-- `FIREBASE_CLIENT_EMAIL`: Email của Service Account.
-- `FIREBASE_PRIVATE_KEY`: Private Key của Service Account (Lưu ý: Copy toàn bộ nội dung trong ngoặc kép, bao gồm cả `-----BEGIN PRIVATE KEY-----`).
+- `FIREBASE_CLIENT_EMAIL`: Email của Service Account (thường có đuôi `@...iam.gserviceaccount.com`).
+- `FIREBASE_PRIVATE_KEY`: Private Key của Service Account.
+  - **RẤT QUAN TRỌNG**: Khi copy từ file JSON, hãy copy toàn bộ giá trị trong dấu ngoặc kép (bao gồm cả `-----BEGIN PRIVATE KEY-----` và `-----END PRIVATE KEY-----`).
+  - Đừng lo lắng về các ký tự `\n`, code của ứng dụng đã được thiết kế để tự động xử lý chúng.
+  - **Mẹo**: Nếu bạn dán vào Vercel mà nó tự động thêm dấu ngoặc kép ở đầu và cuối, code cũng sẽ tự động loại bỏ chúng.
 
-### Gemini AI - Cần thiết cho Dịch thuật
+### Biến thay thế (Nếu các biến trên vẫn lỗi)
+Nếu bạn thấy việc cấu hình từng biến lẻ quá khó khăn, bạn có thể tạo một biến duy nhất:
+- `FIREBASE_SERVICE_ACCOUNT`: Dán **toàn bộ nội dung file JSON** của Service Account vào đây. Ứng dụng sẽ ưu tiên sử dụng biến này.
 - `VITE_GEMINI_API_KEY`: API Key để dịch thuật (Lưu ý: Phải có tiền tố `VITE_` để phía Client có thể đọc được). Bạn có thể nhập nhiều Key phân cách bằng dấu phẩy để tự động xoay vòng.
 
 ## 2. Thêm Domain vào Authorized Domains
