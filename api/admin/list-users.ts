@@ -1,5 +1,5 @@
-import { firestoreRest, CustomRequest } from "../_firebaseAdmin";
-import { checkAdmin } from "../_utils";
+import { firestoreRest, CustomRequest } from "../../lib/firebaseAdmin";
+import { checkAdmin } from "../../lib/utils";
 
 export default async function handler(req: CustomRequest, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });

@@ -3,7 +3,7 @@ import {
   getAdminApp, 
   firestoreRest, 
   CustomRequest 
-} from "./_firebaseAdmin";
+} from "./firebaseAdmin";
 import admin from "firebase-admin";
 
 // In-memory cache for verified tokens
