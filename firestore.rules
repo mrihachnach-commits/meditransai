@@ -1,0 +1,204 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // pillar 0: Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // GLOBAL HELPERS
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.uid == "4cFbfQhPMpgStJXZ9EpAVcd90i33" ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == "hoctap853@gmail.com") ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == "hoanghiep1296@gmail.com") ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == "mrihachnach@gmail.com") ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSharedWithMe(data) {
+      let email = (request.auth != null && 'email' in request.auth.token && request.auth.token.email is string) ? request.auth.token.email.lower() : '';
+      return request.auth != null && email != "" && (
+        data.get('sharedWith', []).hasAny([email])
+      );
+    }
+
+    // ===============================================================
+    // VALIDATION HELPERS
+    // ===============================================================
+
+    function isValidUser(data) {
+      let isAd = isAdmin();
+      let userEmail = (request.auth != null && 'email' in request.auth.token && request.auth.token.email is string) ? request.auth.token.email.lower() : '';
+      return isAd || (
+             (data.uid == request.auth.uid && (data.get('email', null) == null || data.email.lower() == userEmail)) &&
+             (data.get('role', 'user') == 'user') &&
+             (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (data.get('photoURL', null) == null || (data.photoURL is string && data.photoURL.size() <= 2048)) &&
+             (data.get('isBlocked', false) == false) &&
+             (data.get('updatedAt', request.time) == request.time)
+      );
+    }
+
+    function isValidUserResource(data) {
+       return isAdmin() || (data.keys().hasAll(['uid', 'email', 'role']) && data.keys().size() <= 10 &&
+              data.createdAt == request.time);
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['name', 'ownerId', 'token', 'downloadUrl', 'createdAt']) &&
+             data.keys().size() <= 10 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+             data.ownerId is string && data.ownerId == request.auth.uid &&
+             data.token is string && data.token.size() <= 128 &&
+             data.downloadUrl is string && data.downloadUrl.size() <= 2048 &&
+             (data.get('sharedWith', []) is list) &&
+             (data.get('size', 0) is number) &&
+             (data.get('type', '') is string && data.get('type', '').size() <= 128);
+    }
+
+    function isValidFolder(data) {
+      return data.keys().hasAll(['name', 'createdAt']) &&
+             data.keys().size() <= 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+             (data.get('parentId', null) == null || isValidId(data.parentId));
+    }
+
+    function isValidApiKey(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'value', 'engine', 'createdAt']) &&
+             data.keys().size() <= 9 &&
+             data.ownerId is string && data.ownerId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+             data.value is string && data.value.size() > 0 && data.value.size() <= 4096 &&
+             data.engine in ['gemini', 'openai', 'anthropic', 'medical-specialized', 'gemini-3-flash-preview', 'gemini-flash-lite-latest', 'gemini-flash-latest'] &&
+             (data.get('sharedWith', []) is list) &&
+             (data.get('status', 'active') in ['active', 'error']);
+    }
+
+    function isValidTranslation(data) {
+      return data.keys().hasAll(['content', 'status', 'updatedAt']) &&
+             data.keys().size() == 3 &&
+             data.content is string && data.content.size() <= 1048576 &&
+             data.status in ['success', 'error', 'loading'] &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidSummary(data) {
+      return data.keys().hasAll(['content', 'type', 'createdAt']) &&
+             (data.keys().size() >= 3 && data.keys().size() <= 4) &&
+             data.content is string && data.content.size() <= 1048576 &&
+             data.type in ['page', 'chapter', 'document', 'range'] &&
+             data.createdAt == request.time &&
+             (data.get('range', '') is string && data.get('range', '').size() <= 64);
+    }
+
+    function isValidBlacklist(data) {
+      return data.keys().hasAll(['email', 'reason', 'createdAt']) &&
+             data.email is string &&
+             data.reason is string &&
+             (data.createdAt is timestamp || data.createdAt is string);
+    }
+
+    // ===============================================================
+    // RESOURCES
+    // ===============================================================
+
+    match /users {
+      allow list: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow list: if isAdmin();
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow create: if (isOwner(userId) || isAdmin()) && isValidId(userId) && isValidUser(incoming()) && isValidUserResource(incoming());
+      allow update: if (isValidId(userId) && ((isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == existing().createdAt && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL'])) || isAdmin()));
+      allow delete: if isAdmin() && isValidId(userId);
+      
+      match /folders/{folderId} {
+        allow get: if (isOwner(userId) || isAdmin()) && isValidId(folderId);
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidFolder(incoming()) && incoming().createdAt == request.time && isValidId(folderId);
+        allow update: if (isValidId(folderId) && ((isOwner(userId) && isValidFolder(incoming()) && incoming().createdAt == existing().createdAt && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'parentId'])) || isAdmin()));
+        allow delete: if (isOwner(userId) || isAdmin()) && isValidId(folderId);
+      }
+
+      match /documents/{docId} {
+        allow get: if (isOwner(userId) || isSharedWithMe(existing()) || isAdmin()) && isValidId(docId);
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidDocument(incoming()) && incoming().createdAt == request.time && isValidId(docId);
+        allow update: if (isValidId(docId) && ((isOwner(userId) && isValidDocument(incoming()) && incoming().createdAt == existing().createdAt && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'folderId', 'sharedWith'])) || isAdmin()));
+        allow delete: if (isOwner(userId) || isAdmin()) && isValidId(docId);
+
+        match /pages/{pageNum} {
+          allow get: if (isOwner(userId) || isSharedWithMe(get(/databases/$(database)/documents/users/$(userId)/documents/$(docId)).data) || isAdmin()) && isValidId(pageNum);
+          allow list: if isOwner(userId) || isSharedWithMe(get(/databases/$(database)/documents/users/$(userId)/documents/$(docId)).data) || isAdmin();
+          allow create: if (isOwner(userId) || isAdmin()) && isValidId(pageNum) && isValidTranslation(incoming());
+          allow update: if (isValidId(pageNum) && ((isOwner(userId) && isValidTranslation(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'status', 'updatedAt'])) || isAdmin()));
+        }
+
+        match /summaries/{summaryId} {
+          allow get: if (isOwner(userId) || isSharedWithMe(get(/databases/$(database)/documents/users/$(userId)/documents/$(docId)).data) || isAdmin()) && isValidId(summaryId);
+          allow list: if isOwner(userId) || isSharedWithMe(get(/databases/$(database)/documents/users/$(userId)/documents/$(docId)).data) || isAdmin();
+          allow create: if (isOwner(userId) || isAdmin()) && isValidId(summaryId) && isValidSummary(incoming());
+          allow update: if (isValidId(summaryId) && ((isOwner(userId) && isValidSummary(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'type'])) || isAdmin()));
+        }
+      }
+    }
+
+    match /apiKeys/{keyId} {
+      allow get: if isSignedIn() && (existing().ownerId == request.auth.uid || isSharedWithMe(existing()) || isAdmin()) && isValidId(keyId);
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isSharedWithMe(resource.data) || isAdmin());
+      allow create: if isSignedIn() && isValidApiKey(incoming()) && incoming().createdAt == request.time && isValidId(keyId);
+      allow update: if (isValidId(keyId) && isSignedIn() && ((existing().ownerId == request.auth.uid && isValidApiKey(incoming()) && incoming().createdAt == existing().createdAt && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'value', 'sharedWith', 'status'])) || isAdmin()));
+      allow delete: if (isValidId(keyId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin()));
+    }
+
+    match /blacklist/{email} {
+      allow get: if isSignedIn() && (('email' in request.auth.token && request.auth.token.email == email) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidBlacklist(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Collection Group for Shared Documents
+    match /{path=**}/documents/{docId} {
+      allow list: if isSharedWithMe(resource.data) || isAdmin();
+    }
+
+    // System/Debug
+    match /test_connection/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /test/{docId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
