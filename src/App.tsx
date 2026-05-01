@@ -2816,7 +2816,7 @@ export default function App() {
     }
 
     // 3. Fallback to Environment variables (especially useful for Vercel/Production deployments)
-    const envKeySource = (import.meta.env.VITE_GEMINI_API_KEY || "");
+    const envKeySource = (import.meta.env.VITE_GEMINI_API_KEY || (window as any).process?.env?.VITE_GEMINI_API_KEY || "");
     if (envKeySource) {
       const envKeys = envKeySource.split(/[,\n]/).map(k => k.trim()).filter(k => k !== "");
       envKeys.forEach(ek => {
@@ -2824,6 +2824,12 @@ export default function App() {
           allKeys.push(ek);
         }
       });
+    }
+
+    // 4. Try legacy or server-injected keys if any
+    const fallbackKey = (window as any).GEMINI_API_KEY || (import.meta.env.GEMINI_API_KEY || "");
+    if (fallbackKey && !allKeys.includes(fallbackKey)) {
+      allKeys.push(fallbackKey);
     }
 
     // Deduplicate and filter

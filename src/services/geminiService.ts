@@ -209,19 +209,29 @@ export class GeminiService implements TranslationService {
         if (signal?.aborted || error.message === "Translation aborted") {
           throw new Error("Translation aborted");
         }
-        const isQuotaError = error.message?.toLowerCase().includes("quota") || 
-                           error.message?.toLowerCase().includes("429") ||
-                           error.message?.toLowerCase().includes("resource_exhausted");
-        const isUnavailableError = error.message?.toLowerCase().includes("unavailable") || 
-                                 error.message?.toLowerCase().includes("503") ||
-                                 error.message?.toLowerCase().includes("high demand");
-        const isPermissionDeniedError = error.message?.toLowerCase().includes("permission_denied") || 
-                                       error.message?.toLowerCase().includes("403") ||
-                                       error.message?.toLowerCase().includes("denied access");
-        const isNetworkError = error.message?.includes("status code: 0") || 
-                              error.message?.includes("code: 0") ||
-                              error.message?.toLowerCase().includes("fetch failed");
         
+        const errorMessage = error.message?.toLowerCase() || "";
+        const isQuotaError = errorMessage.includes("quota") || 
+                           errorMessage.includes("429") ||
+                           errorMessage.includes("resource_exhausted");
+        const isUnavailableError = errorMessage.includes("unavailable") || 
+                                 errorMessage.includes("503") ||
+                                 errorMessage.includes("high demand");
+        const isPermissionDeniedError = errorMessage.includes("permission_denied") || 
+                                       errorMessage.includes("403") ||
+                                       errorMessage.includes("denied access") ||
+                                       errorMessage.includes("not found");
+        const isNetworkError = errorMessage.includes("status code: 0") || 
+                              errorMessage.includes("code: 0") ||
+                              errorMessage.includes("fetch failed");
+        
+        // Detailed error for users
+        if (isPermissionDeniedError) {
+          error.message = "API Key không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại Key và đảm bảo Generative Language API đã được bật.";
+        } else if (isQuotaError) {
+          error.message = "Hết hạn mức API (Quota Exceeded). Vui lòng thêm nhiều Key hơn hoặc đợi 1-2 phút.";
+        }
+
         if ((isQuotaError || isUnavailableError || isPermissionDeniedError || isNetworkError) && retryCount < MAX_RETRIES) {
           const canRotate = this.rotateKey(key, isQuotaError || isPermissionDeniedError);
           retryCount++;
@@ -278,15 +288,21 @@ export class GeminiService implements TranslationService {
       } catch (error: any) {
         if (signal?.aborted) throw new Error("Translation aborted");
         
-        const isPermissionDeniedError = error.message?.toLowerCase().includes("permission_denied") || 
-                                       error.message?.toLowerCase().includes("403") ||
-                                       error.message?.toLowerCase().includes("denied access");
-        const isQuotaError = error.message?.toLowerCase().includes("quota") || 
-                           error.message?.toLowerCase().includes("429") ||
-                           error.message?.toLowerCase().includes("resource_exhausted");
-        const isNetworkError = error.message?.includes("status code: 0") || 
-                              error.message?.includes("code: 0") ||
-                              error.message?.toLowerCase().includes("fetch failed");
+        const errorMessage = error.message?.toLowerCase() || "";
+        const isPermissionDeniedError = errorMessage.includes("permission_denied") || 
+                                       errorMessage.includes("403") ||
+                                       errorMessage.includes("denied access") ||
+                                       errorMessage.includes("not found");
+        const isQuotaError = errorMessage.includes("quota") || 
+                           errorMessage.includes("429") ||
+                           errorMessage.includes("resource_exhausted");
+        const isNetworkError = errorMessage.includes("status code: 0") || 
+                              errorMessage.includes("code: 0") ||
+                              errorMessage.includes("fetch failed");
+
+        if (isPermissionDeniedError) {
+          error.message = "API Key không hợp lệ hoặc bị từ chối. Kiểm tra lại domain hoặc API settings.";
+        }
 
         if (retryCount < MAX_RETRIES && this.rotateKey(key, isQuotaError || isPermissionDeniedError || isNetworkError)) {
           retryCount++; continue;
