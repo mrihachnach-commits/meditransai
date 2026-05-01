@@ -1,5 +1,5 @@
 import { getAuth } from "firebase-admin/auth";
-import { getAdminApp, firestoreRest, CustomRequest } from "../../src/lib/firebaseAdmin";
+import { getAdminApp, firestoreRest, CustomRequest } from "../_firebaseAdmin";
 import { checkAdmin } from "../_utils";
 
 export default async function handler(req: CustomRequest, res: any) {
