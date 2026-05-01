@@ -2815,6 +2815,17 @@ export default function App() {
       }
     }
 
+    // 3. Fallback to Environment variables (especially useful for Vercel/Production deployments)
+    const envKeySource = (import.meta.env.VITE_GEMINI_API_KEY || "");
+    if (envKeySource) {
+      const envKeys = envKeySource.split(/[,\n]/).map(k => k.trim()).filter(k => k !== "");
+      envKeys.forEach(ek => {
+        if (!allKeys.includes(ek)) {
+          allKeys.push(ek);
+        }
+      });
+    }
+
     // Deduplicate and filter
     allKeys = Array.from(new Set(allKeys.filter(k => k && k.trim() !== "")));
     const keyString = allKeys.join(',');
