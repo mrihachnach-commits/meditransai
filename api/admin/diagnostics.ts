@@ -1,5 +1,5 @@
-import { firebaseConfig, getAdminApp, CustomRequest } from "../_firebaseAdmin";
-import { checkAdmin } from "../_utils";
+import { firebaseConfig, getAdminApp, CustomRequest } from "../_firebaseAdmin.ts";
+import { checkAdmin } from "../_utils.ts";
 
 export default async function handler(req: CustomRequest, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });

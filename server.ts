@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-import { firebaseConfig } from "./api/_firebaseAdmin";
+import { firebaseConfig } from "./api/_firebaseAdmin.ts";
 
 // Import handlers for local mapping
 import pingHandler from "./api/ping";

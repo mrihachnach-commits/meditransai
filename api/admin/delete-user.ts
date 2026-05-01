@@ -1,6 +1,6 @@
 import { getAuth } from "firebase-admin/auth";
-import { getAdminApp, firestoreRest, CustomRequest } from "../_firebaseAdmin";
-import { checkAdmin } from "../_utils";
+import { getAdminApp, firestoreRest, CustomRequest } from "../_firebaseAdmin.ts";
+import { checkAdmin } from "../_utils.ts";
 
 export default async function handler(req: CustomRequest, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
