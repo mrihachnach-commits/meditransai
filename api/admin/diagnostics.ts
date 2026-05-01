@@ -8,28 +8,22 @@ export default async function handler(req: CustomRequest, res: any) {
   try {
     await checkAdmin(req);
     
+    const { app: adminApp, isFullAdmin } = getAdminApp();
+    
     const results: any = {
       projectId: firebaseConfig.projectId,
       databaseId: firebaseConfig.firestoreDatabaseId,
       configLoaded: !firebaseConfig.error,
-      adminSdk: { status: "unknown" },
+      adminSdk: { 
+        status: adminApp ? "ok" : "error",
+        isFullAdmin: isFullAdmin
+      },
       env: {
         VERCEL: process.env.VERCEL || "0",
-        HAS_ADMIN_KEYS: !!(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY)
+        HAS_ADMIN_KEYS: !!(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY),
+        HAS_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT
       }
     };
-
-    try {
-      const adminApp = getAdminApp();
-      if (adminApp) {
-        results.adminSdk.status = "ok";
-      } else {
-        results.adminSdk.status = "error";
-      }
-    } catch (e: any) {
-      results.adminSdk.status = "error";
-      results.adminSdk.message = e.message;
-    }
 
     return res.status(200).json(results);
   } catch (err: any) {

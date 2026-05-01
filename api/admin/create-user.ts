@@ -14,8 +14,9 @@ export default async function handler(req: CustomRequest, res: any) {
 
     let uid = "";
     try {
-      const currentAdminApp = getAdminApp();
-      if (!currentAdminApp) throw new Error("Admin SDK not initialized");
+      const { app: currentAdminApp, isFullAdmin } = getAdminApp();
+      if (!currentAdminApp || !isFullAdmin) throw new Error("Hành động này yêu cầu Service Account.");
+      
       const userRecord = await admin.auth(currentAdminApp).createUser({ 
         email, 
         password, 

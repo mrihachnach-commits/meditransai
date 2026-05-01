@@ -13,9 +13,9 @@ export default async function handler(req: CustomRequest, res: any) {
     console.log(`[Server] Admin delete-user request for ${email} (${uid})`);
     
     let authDeleted = false;
-    const currentAdminApp = getAdminApp();
+    const { app: currentAdminApp, isFullAdmin } = getAdminApp();
     
-    if (currentAdminApp) {
+    if (currentAdminApp && isFullAdmin) {
       try {
         console.log(`[Server] Deleting user ${uid} from Firebase Auth...`);
         await getAuth(currentAdminApp).deleteUser(uid);
@@ -29,8 +29,12 @@ export default async function handler(req: CustomRequest, res: any) {
           throw { status: 500, error: `Lỗi xóa tài khoản khỏi Authentication: ${ae.message}` };
         }
       }
+    } else if (currentAdminApp && !isFullAdmin) {
+      console.warn("[Server] Delete attempt skipped: Admin SDK initialized without Service Account.");
+      // We might want to allow failing gracefully or throwing error
+      throw { status: 500, error: "Hành động này yêu cầu Service Account. Vui lòng cấu hình FIREBASE_CLIENT_EMAIL và FIREBASE_PRIVATE_KEY trong Secrets." };
     } else {
-      throw { status: 500, error: "Admin SDK chưa được cấu hình đầy đủ (Service Account)." };
+      throw { status: 500, error: "Admin SDK chưa được cấu hình." };
     }
     
     await firestoreRest.deleteDoc("users", uid, req.idToken);
